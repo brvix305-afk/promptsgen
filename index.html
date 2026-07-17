@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Prompt Engineer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0a;--card:#111;--border:#222;--accent:#e8e8e8;--muted:#666;--text:#ccc;--highlight:#fff;--danger:#c0392b;--success:#27ae60;--radius:12px}
+body{font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+h1{color:var(--highlight);font-size:28px;font-weight:700;letter-spacing:-0.5px}
+.key-btn{background:none;border:1px solid var(--border);color:var(--muted);font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .2s}
+.key-btn:hover{border-color:var(--muted);color:var(--highlight)}
+.subtitle{color:var(--muted);font-size:14px;margin-bottom:40px}
+.container{width:100%;max-width:680px}
+.step{display:none;animation:fadeIn .4s ease}
+.step.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px}
+.card h2{color:var(--highlight);font-size:18px;font-weight:600;margin-bottom:16px}
+.card p{color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:20px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:48px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.upload-zone:hover{border-color:var(--muted);background:#161616}
+.upload-zone.dragover{border-color:var(--accent);background:#1a1a1a}
+.upload-zone svg{width:40px;height:40px;color:var(--muted);margin-bottom:12px}
+.upload-zone span{color:var(--muted);font-size:14px;display:block}
+.upload-zone .hint{color:#444;font-size:12px;margin-top:6px}
+.preview{width:100%;max-height:420px;object-fit:contain;border-radius:8px;margin-top:16px;display:none}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--highlight);color:#000}
+.btn-primary:hover{background:#ddd}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+.btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--muted);color:var(--highlight)}
+.options-group{margin-bottom:20px}
+.radio-cards{display:flex;flex-direction:column;gap:8px}
+.radio-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s}
+.radio-card:hover{border-color:var(--muted);background:#161616}
+.radio-card.selected{border-color:var(--highlight);background:#1a1a1a}
+.radio-card input{display:none}
+.radio-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;position:relative;transition:border-color .2s}
+.radio-card.selected .radio-dot{border-color:var(--highlight)}
+.radio-card.selected .radio-dot::after{content:'';position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:50%;background:var(--highlight)}
+.radio-card .rc-label{font-size:14px;color:var(--text)}
+.radio-card .rc-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.prompt-output{background:#0d0d0d;border:1px solid var(--border);border-radius:8px;padding:20px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;max-height:600px;overflow-y:auto;user-select:all}
+.copy-btn{position:sticky;bottom:0;display:flex;justify-content:center;margin-top:12px}
+.loader{display:none;flex-direction:column;align-items:center;gap:16px;padding:40px 0}
+.loader.active{display:flex}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader span{color:var(--muted);font-size:13px}
+.progress-bar{width:100%;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:20px}
+.progress-bar .fill{height:100%;background:var(--highlight);border-radius:2px;transition:width .4s ease;width:0}
+.step-indicator{display:flex;gap:6px;margin-bottom:24px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .3s}
+.step-dot.done{background:var(--muted)}
+.step-dot.current{background:var(--highlight)}
+.upload-outfit{margin-top:12px}
+.upload-outfit .upload-zone{padding:24px 16px}
+.upload-outfit .upload-zone svg{width:28px;height:28px}
+.outfit-preview{display:flex;gap:12px;align-items:center;margin-top:12px}
+.outfit-preview img{width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+.outfit-preview .remove-outfit{color:var(--danger);cursor:pointer;font-size:12px;border:none;background:none;padding:4px 8px}
+.tag{display:inline-block;background:#1a1a1a;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--muted);margin-top:8px}
+.token-input{width:100%;padding:14px 16px;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;color:var(--highlight);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;outline:none;transition:border-color .2s}
+.token-input:focus{border-color:var(--accent)}
+.token-input::placeholder{color:#333}
+.token-status{font-size:12px;margin-top:8px;display:none}
+.token-status.show{display:block}
+.token-status.ok{color:var(--success)}
+.token-status.err{color:var(--danger)}
+.token-hint{font-size:12px;color:#444;margin-top:12px;line-height:1.5}
+.accessory-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.accessory-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;user-select:none}
+.accessory-item:hover{border-color:var(--muted);background:#161616}
+.accessory-item.checked{border-color:var(--highlight);background:#1a1a1a}
+.accessory-item input[type=checkbox]{display:none}
+.acc-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);flex-shrink:0;position:relative;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.accessory-item.checked .acc-check{border-color:var(--highlight);background:var(--highlight)}
+.accessory-item.checked .acc-check::after{content:'';width:6px;height:3px;border-left:2px solid #000;border-bottom:2px solid #000;transform:rotate(-45deg) translateY(-1px)}
+.acc-name{font-size:14px;color:var(--text);font-weight:500}
+.acc-desc{font-size:12px;color:var(--muted);margin-top:1px}
+.acc-toggle{display:flex;gap:8px;margin-bottom:12px}
+.acc-toggle button{background:none;border:1px solid var(--border);color:var(--muted);font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s}
+.acc-toggle button:hover{border-color:var(--muted);color:var(--highlight)}
+.acc-none{color:var(--muted);font-size:13px;padding:20px;text-align:center}
+.env-detected{background:#151515;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.env-detected-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.env-detected-text{font-size:13px;color:var(--text);line-height:1.6}
+.env-presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.env-preset{padding:14px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;user-select:none}
+.env-preset:hover{border-color:var(--muted);background:#161616}
+.env-preset.selected{border-color:var(--highlight);background:#1a1a1a}
+.env-preset .ep-icon{font-size:20px;margin-bottom:4px}
+.env-preset .ep-name{font-size:13px;color:var(--text);font-weight:500}
+.env-custom{margin-top:12px;display:none}
+.env-custom textarea{width:100%;padding:12px 14px;background:#0d0d0d;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;min-height:60px;transition:border-color .2s}
+.env-custom textarea:focus{border-color:var(--accent)}
+.env-custom textarea::placeholder{color:#333}
+.error-msg{color:var(--danger);font-size:13px;margin-top:12px;display:none}
+.error-msg.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AI Prompt Engineer</h1>
+  <button class="key-btn" id="changeKeyBtn" onclick="goTo(0)" style="display:none">Change Key</button>
+</div>
+<p class="subtitle">Pinterest image &rarr; Ultra-photorealistic prompt</p>
+
+<div class="container">
+  <div class="step-indicator" id="stepIndicator"></div>
+  <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+
+  <!-- STEP 0: API Token -->
+  <div class="step active" id="step0">
+    <div class="card">
+      <h2>API Token</h2>
+      <p>Enter your Groq API key to get started. Your key is saved in your browser and only sent to Groq's API.</p>
+      <input type="password" class="token-input" id="tokenInput" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+      <div class="token-status" id="tokenStatus"></div>
+      <div class="token-hint">Get your free key at <strong>console.groq.com</strong> &mdash; takes 30 seconds. The key starts with <code>gsk_</code>.</div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="submitToken()">Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 1: Upload -->
+  <div class="step" id="step1">
+    <div class="card">
+      <h2>Upload Reference Image</h2>
+      <p>Upload a Pinterest reference image. I will analyze every visual detail and recreate it as a professional image-generation prompt.</p>
+      <div class="upload-zone" id="mainUpload" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/></svg>
+        <span>Click or drag an image here</span>
+        <span class="hint">JPG, PNG, WebP &mdash; max 10MB</span>
+      </div>
+      <input type="file" id="mainFileInput" accept="image/*" style="display:none">
+      <img class="preview" id="mainPreview" alt="Preview">
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" id="step1Next" disabled>Analyze Image</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Analyzing -->
+  <div class="step" id="step2">
+    <div class="card">
+      <h2>Analyzing Image</h2>
+      <p>Reading every visual element from your reference image...</p>
+      <div class="loader active">
+        <div class="spinner"></div>
+        <span id="analyzingStatus">Sending to AI vision model...</span>
+      </div>
+      <div class="error-msg" id="analysisError"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Outfit -->
+  <div class="step" id="step3">
+    <div class="card">
+      <h2>Outfit</h2>
+      <p>How should the clothing appear in the final image?</p>
+      <div class="options-group">
+        <div class="radio-cards" id="outfitOptions">
+          <label class="radio-card selected" data-val="original">
+            <input type="radio" name="outfit" value="original" checked>
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Use outfit exactly as shown</div><div class="rc-desc">Preserve the clothing from the reference image.</div></div>
+          </label>
+          <label class="radio-card" data-val="custom">
+            <input type="radio" name="outfit" value="custom">
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Upload another outfit reference</div><div class="rc-desc">Replace clothing while keeping pose, lighting, and composition.</div></div>
+          </label>
+        </div>
+      </div>
+      <div class="upload-outfit" id="outfitUploadSection" style="display:none">
+        <div class="upload-zone" id="outfitUpload" tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/></svg>
+          <span>Upload outfit reference</span>
+          <span class="hint">JPG, PNG, WebP &mdash; max 10MB</span>
+        </div>
+        <input type="file" id="outfitFileInput" accept="image/*" style="display:none">
+        <div class="outfit-preview" id="outfitPreview" style="display:none">
+          <img id="outfitThumb" src="" alt="">
+          <span class="tag" id="outfitFileName"></span>
+          <button class="remove-outfit" id="removeOutfit">Remove</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(1)">Back</button>
+      <button class="btn btn-primary" onclick="goTo(4)">Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Tattoos -->
+  <div class="step" id="step4">
+    <div class="card">
+      <h2>Tattoos</h2>
+      <p>Do you want to keep or remove visible tattoos?</p>
+      <div class="options-group">
+        <div class="radio-cards" id="tattooOptions">
+          <label class="radio-card selected" data-val="keep-tattoos">
+            <input type="radio" name="tattoos" value="keep-tattoos" checked>
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Keep tattoos</div><div class="rc-desc">Preserve all visible tattoos exactly as they appear.</div></div>
+          </label>
+          <label class="radio-card" data-val="remove-tattoos">
+            <input type="radio" name="tattoos" value="remove-tattoos">
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Remove tattoos</div><div class="rc-desc">Generate the image without any tattoos.</div></div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(3)">Back</button>
+      <button class="btn btn-primary" onclick="goTo(5)">Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Accessories -->
+  <div class="step" id="step5">
+    <div class="card">
+      <h2>Accessories <span id="accCount" style="font-weight:400;font-size:14px;color:var(--muted)"></span></h2>
+      <p>Select which detected accessories to keep in the final image.</p>
+      <div class="acc-toggle" id="accToggle" style="display:none">
+        <button onclick="toggleAllAccessories(true)">Select All</button>
+        <button onclick="toggleAllAccessories(false)">Deselect All</button>
+      </div>
+      <div class="accessory-list" id="accessoryList">
+        <div class="acc-none">Loading accessories...</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(4)">Back</button>
+      <button class="btn btn-primary" onclick="goTo(6)">Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 6: Environment -->
+  <div class="step" id="step6">
+    <div class="card">
+      <h2>Environment</h2>
+      <p>Keep the original environment or replace it with a custom one.</p>
+      <div class="env-detected" id="envDetected">
+        <div class="env-detected-label">Detected Environment</div>
+        <div class="env-detected-text" id="envDetectedText">Loading...</div>
+      </div>
+      <div class="options-group">
+        <div class="radio-cards" id="envOptions">
+          <label class="radio-card selected" data-val="original" onclick="toggleEnvMode('original')">
+            <input type="radio" name="environment" value="original" checked>
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Keep original environment</div><div class="rc-desc">Use the environment exactly as detected in the reference image.</div></div>
+          </label>
+          <label class="radio-card" data-val="custom" onclick="toggleEnvMode('custom')">
+            <input type="radio" name="environment" value="custom">
+            <div class="radio-dot"></div>
+            <div><div class="rc-label">Use a custom environment</div><div class="rc-desc">Replace the background with a different setting.</div></div>
+          </label>
+        </div>
+      </div>
+      <div class="env-presets" id="envPresets" style="display:none">
+        <div class="env-preset" data-preset="night-city" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🌃</div><div class="ep-name">Night City</div>
+        </div>
+        <div class="env-preset" data-preset="day-street" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🏙️</div><div class="ep-name">Day Street</div>
+        </div>
+        <div class="env-preset" data-preset="indoor-cafe" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">☕</div><div class="ep-name">Indoor Cafe</div>
+        </div>
+        <div class="env-preset" data-preset="beach" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🏖️</div><div class="ep-name">Beach</div>
+        </div>
+        <div class="env-preset" data-preset="rainy-street" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🌧️</div><div class="ep-name">Rainy Street</div>
+        </div>
+        <div class="env-preset" data-preset="park-nature" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🌳</div><div class="ep-name">Park / Nature</div>
+        </div>
+        <div class="env-preset" data-preset="car-interior" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🚗</div><div class="ep-name">Car Interior</div>
+        </div>
+        <div class="env-preset" data-preset="rooftop" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">🌇</div><div class="ep-name">Rooftop</div>
+        </div>
+        <div class="env-preset" data-preset="studio" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">📸</div><div class="ep-name">Studio</div>
+        </div>
+        <div class="env-preset" data-preset="snow" onclick="selectEnvPreset(this)">
+          <div class="ep-icon">❄️</div><div class="ep-name">Snowy</div>
+        </div>
+      </div>
+      <div class="env-custom" id="envCustomSection">
+        <textarea id="envCustomText" placeholder="Describe your custom environment... e.g. narrow alley with neon signs, wet pavement, night time, Tokyo vibes"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(5)">Back</button>
+      <button class="btn btn-primary" onclick="goTo(7)">Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 7: Subject (note) -->
+  <div class="step" id="step7">
+    <div class="card">
+      <h2>Subject</h2>
+      <p>The Subject section in the final prompt will be left blank. You will upload your own face directly to the image generation model. The prompt will describe only body position, pose, and movement &mdash; no facial features.</p>
+      <div style="background:#151515;border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px">
+        <p style="color:var(--highlight);font-size:13px;margin-bottom:0">Subject: [blank]</p>
+        <p style="color:var(--muted);font-size:12px;margin-top:6px;margin-bottom:0">Upload your own portrait to the image generator for the face.</p>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(6)">Back</button>
+      <button class="btn btn-primary" onclick="generatePrompt()">Generate Prompt</button>
+    </div>
+  </div>
+
+  <!-- STEP 8: Generating -->
+  <div class="step" id="step8">
+    <div class="card">
+      <h2>Generating Prompt</h2>
+      <p>Building your ultra-detailed photorealistic prompt...</p>
+      <div class="loader active">
+        <div class="spinner"></div>
+        <span id="generatingStatus">Composing prompt from analysis...</span>
+      </div>
+      <div class="error-msg" id="generationError"></div>
+    </div>
+  </div>
+
+  <!-- STEP 9: Result -->
+  <div class="step" id="step9">
+    <div class="card">
+      <h2>Your Prompt</h2>
+      <p>Copy the prompt below and paste it into your image generator.</p>
+      <div class="prompt-output" id="promptOutput"></div>
+      <div class="copy-btn">
+        <button class="btn btn-primary" id="copyBtn" onclick="copyPrompt()">Copy to Clipboard</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goTo(0)">Start Over</button>
+      <button class="btn btn-secondary" onclick="goTo(3)">Adjust Options</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const TOTAL_STEPS = 10;
+
+let API_KEY = '';
+let mainImageBase64 = null;
+let outfitImageBase64 = null;
+let analysisResult = '';
+
+const $ = id => document.getElementById(id);
+
+function buildIndicators() {
+  const c = $('stepIndicator');
+  c.innerHTML = '';
+  for (let i = 0; i < TOTAL_STEPS; i++) {
+    const d = document.createElement('div');
+    d.className = 'step-dot';
+    d.dataset.step = i;
+    c.appendChild(d);
+  }
+}
+
+function goTo(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  const target = $('step' + n);
+  if (target) target.classList.add('active');
+  document.querySelectorAll('.step-dot').forEach(d => {
+    const s = parseInt(d.dataset.step);
+    d.className = 'step-dot' + (s < n ? ' done' : s === n ? ' current' : '');
+  });
+  $('progressFill').style.width = (n / (TOTAL_STEPS - 1) * 100) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('changeKeyBtn').style.display = n === 0 ? 'none' : '';
+}
+
+async function callGroq(messages) {
+  if (!API_KEY) throw new Error('No API token set.');
+  const resp = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+    body: JSON.stringify({ model: MODEL, messages, max_tokens: 4096, temperature: 0.4 })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + resp.status);
+  }
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+function submitToken() {
+  const val = $('tokenInput').value.trim();
+  const status = $('tokenStatus');
+  if (!val) {
+    status.textContent = 'Please enter a token.';
+    status.className = 'token-status show err';
+    return;
+  }
+  if (!val.startsWith('gsk_')) {
+    status.textContent = 'Invalid token. Must start with gsk_.';
+    status.className = 'token-status show err';
+    return;
+  }
+  API_KEY = val;
+  localStorage.setItem('groq_api_key', val);
+  status.textContent = 'Validating...';
+  status.className = 'token-status show ok';
+  callGroq([{ role: 'user', content: 'Reply with just the word ok.' }]).then(() => {
+    status.textContent = 'Token valid!';
+    status.className = 'token-status show ok';
+    goTo(1);
+  }).catch(err => {
+    API_KEY = '';
+    localStorage.removeItem('groq_api_key');
+    status.textContent = 'Invalid token: ' + err.message;
+    status.className = 'token-status show err';
+  });
+}
+
+$('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitToken(); });
+
+function setupUpload(zoneId, inputId, previewId, onLoaded) {
+  const zone = $(zoneId);
+  const input = $(inputId);
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0], previewId, onLoaded); });
+  input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0], previewId, onLoaded); });
+}
+
+function handleFile(file, previewId, onLoaded) {
+  if (file.size > 10 * 1024 * 1024) return alert('File too large. Max 10MB.');
+  if (!file.type.startsWith('image/')) return alert('Please upload an image file.');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result;
+    const preview = $(previewId);
+    if (preview) { preview.src = base64; preview.style.display = 'block'; }
+    onLoaded(base64, file.type || 'image/jpeg');
+  };
+  reader.readAsDataURL(file);
+}
+
+setupUpload('mainUpload', 'mainFileInput', 'mainPreview', (b64) => {
+  mainImageBase64 = b64;
+  $('step1Next').disabled = false;
+});
+
+setupUpload('outfitUpload', 'outfitFileInput', 'outfitThumb', (b64) => {
+  outfitImageBase64 = b64;
+  $('outfitPreview').style.display = 'flex';
+  $('outfitFileName').textContent = 'Outfit reference loaded';
+});
+
+$('removeOutfit').addEventListener('click', () => {
+  outfitImageBase64 = null;
+  $('outfitPreview').style.display = 'none';
+  $('outfitFileInput').value = '';
+});
+
+document.querySelectorAll('.radio-cards').forEach(group => {
+  group.querySelectorAll('.radio-card').forEach(card => {
+    card.addEventListener('click', () => {
+      group.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      card.querySelector('input').checked = true;
+      if (card.dataset.val === 'custom') $('outfitUploadSection').style.display = 'block';
+      if (card.dataset.val === 'original') $('outfitUploadSection').style.display = 'none';
+    });
+  });
+});
+
+let detectedAccessories = [];
+
+async function populateAccessories() {
+  const list = $('accessoryList');
+  const toggle = $('accToggle');
+  list.innerHTML = '<div class="acc-none">Detecting accessories...</div>';
+  toggle.style.display = 'none';
+  try {
+    const raw = await callGroq([
+      {
+        role: 'system',
+        content: `You are an image analyst. Look at the analysis text provided and extract ONLY the accessories that are actually visible on the person. An accessory is something wearable or carryable: rings, necklaces, bracelets, watches, earrings, sunglasses, hats, caps, bags, belts, piercings, chains, pendants, glasses, scarves, gloves. Do NOT include clothing items. Do NOT include tattoos. Do NOT invent accessories. If none are visible, return an empty array. Return ONLY a JSON array, no other text. Each item must have "name" (short label) and "desc" (the full sentence describing it from the analysis). Example: [{"name":"Watch","desc":"Silver Casio watch on left wrist"}]`
+      },
+      {
+        role: 'user',
+        content: 'Extract accessories from this analysis:\n\n' + analysisResult
+      }
+    ]);
+    let parsed = [];
+    try {
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {}
+    parsed = parsed.filter(a => a && a.name && a.desc && a.name.length > 0 && a.desc.length > 0);
+    parsed = parsed.map(a => ({ name: a.name.trim(), desc: a.desc.trim(), checked: true }));
+    detectedAccessories = parsed;
+    if (detectedAccessories.length === 0) {
+      list.innerHTML = '<div class="acc-none">No accessories detected in the image.</div>';
+      toggle.style.display = 'none';
+      return;
+    }
+    toggle.style.display = 'flex';
+    list.innerHTML = '';
+    detectedAccessories.forEach((acc, i) => {
+      const el = document.createElement('label');
+      el.className = 'accessory-item checked';
+      el.dataset.index = i;
+      el.innerHTML = '<input type="checkbox" checked><div class="acc-check"></div><div><div class="acc-name"></div><div class="acc-desc"></div></div>';
+      el.querySelector('.acc-name').textContent = acc.name;
+      el.querySelector('.acc-desc').textContent = acc.desc;
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        acc.checked = !acc.checked;
+        el.classList.toggle('checked', acc.checked);
+        el.querySelector('input').checked = acc.checked;
+        updateAccCount();
+      });
+      list.appendChild(el);
+    });
+    updateAccCount();
+  } catch (err) {
+    list.innerHTML = '<div class="acc-none">Could not detect accessories.</div>';
+    toggle.style.display = 'none';
+    detectedAccessories = [];
+  }
+}
+
+function toggleAllAccessories(state) {
+  detectedAccessories.forEach(acc => acc.checked = state);
+  document.querySelectorAll('.accessory-item').forEach(el => {
+    el.classList.toggle('checked', state);
+    el.querySelector('input').checked = state;
+  });
+  updateAccCount();
+}
+
+function getSelectedAccessories() {
+  return detectedAccessories.filter(a => a.checked).map(a => a.desc);
+}
+
+function getRemovedAccessories() {
+  return detectedAccessories.filter(a => !a.checked).map(a => a.name);
+}
+
+function updateAccCount() {
+  const total = detectedAccessories.length;
+  const selected = detectedAccessories.filter(a => a.checked).length;
+  const el = $('accCount');
+  if (total === 0) { el.textContent = ''; return; }
+  el.textContent = '(' + selected + ' of ' + total + ' selected)';
+}
+
+let detectedEnvironment = '';
+let selectedEnvPreset = '';
+let customEnvText = '';
+
+const ENV_PRESETS = {
+  'night-city': 'Urban city street at night. Tall buildings with illuminated windows and neon signs. Wet or dry asphalt reflecting streetlights and neon. Scattered car headlights and taillights. Warm and cool mixed artificial lighting from storefronts, street lamps, and traffic signals. Dark sky with light pollution glow. Pedestrians in background. Crosswalk markings on the road.',
+  'day-street': 'Busy city street during daytime. Concrete sidewalks, storefronts, parked cars, street signs. Natural daylight with soft shadows. Mixed architecture styles. Trees along the sidewalk. People walking in the background. Clear or partly cloudy sky. Urban everyday atmosphere.',
+  'indoor-cafe': 'Cozy indoor cafe or coffee shop. Warm ambient lighting from pendant lamps and natural window light. Wooden tables, chairs, counter with menu boards. Coffee cups, pastries on display. Warm earth tones. Other customers blurred in background. Plants on shelves. Exposed brick or painted walls.',
+  'beach': 'Sandy beach with ocean waves in the background. Natural golden sunlight. Wet sand near the waterline. Blue sky with scattered clouds. Horizon line visible. Seashells, driftwood, or beach grass. Warm summer atmosphere. Wind-blown sand textures.',
+  'rainy-street': 'Rainy city street. Wet pavement reflecting neon signs and streetlights. Puddles on the ground. Rain droplets visible in the air. Overcast grey sky. Car headlights cutting through the rain. People with umbrellas in the distance. Moody, atmospheric lighting. Glistening wet surfaces everywhere.',
+  'park-nature': 'Green park or natural setting. Trees with leaves, grass, bushes. Dappled sunlight through the canopy. Walking paths, benches. Natural earth tones. Birds, flowers. Peaceful outdoor atmosphere. Soft natural lighting with leaf shadows.',
+  'car-interior': 'Inside a car. Dashboard, steering wheel, seats visible. Natural light through windows showing blurred street or scenery outside. Interior textures: leather, plastic, fabric. Rearview mirror. Phone mount. Everyday driving atmosphere.',
+  'rooftop': 'Rooftop overlooking a city skyline. Open sky above. Building tops and antennas visible. Sunset or night lighting. City lights in the distance. Concrete or tiled rooftop surface. Metal railings. Windy atmosphere. Urban panoramic view.',
+  'studio': 'Simple indoor studio or room. Plain or textured wall background. Controlled artificial lighting. Clean, minimal setting. Soft shadows. Neutral tones. Professional but not overly polished.',
+  'snow': 'Snowy outdoor environment. White snow covering ground, trees, buildings. Overcast or clear winter sky. Cold blue-white color palette. Breath visible in cold air. Footprints in snow. Icicles, frost textures. Winter atmosphere.'
+};
+
+function parseEnvironment(analysisText) {
+  const envSection = analysisText.match(/ENVIRONMENT[:\s]*(.*?)(?=\n\s*(?:CAMERA|LIGHTING|REALISM|COLOR|ACCESSORIES|TATTOOS)|\n\s*\n|\n\s*$)/is);
+  if (!envSection) return 'No environment details detected.';
+  const text = envSection[1].trim();
+  return text.length > 5 ? text : 'No environment details detected.';
+}
+
+function populateEnvironment() {
+  detectedEnvironment = parseEnvironment(analysisResult);
+  $('envDetectedText').textContent = detectedEnvironment;
+}
+
+function toggleEnvMode(mode) {
+  const presets = $('envPresets');
+  const custom = $('envCustomSection');
+  if (mode === 'custom') {
+    presets.style.display = 'grid';
+    custom.style.display = selectedEnvPreset ? 'block' : 'none';
+  } else {
+    presets.style.display = 'none';
+    custom.style.display = 'none';
+    selectedEnvPreset = '';
+    customEnvText = '';
+    document.querySelectorAll('.env-preset').forEach(p => p.classList.remove('selected'));
+    $('envCustomText').value = '';
+  }
+}
+
+function selectEnvPreset(el) {
+  document.querySelectorAll('.env-preset').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedEnvPreset = el.dataset.preset;
+  $('envCustomSection').style.display = 'block';
+  $('envCustomText').value = ENV_PRESETS[selectedEnvPreset] || '';
+  customEnvText = ENV_PRESETS[selectedEnvPreset] || '';
+}
+
+$('envCustomText').addEventListener('input', () => {
+  customEnvText = $('envCustomText').value;
+});
+
+function getSelectedEnvironment() {
+  const mode = document.querySelector('input[name="environment"]:checked')?.value || 'original';
+  if (mode === 'original') return { mode: 'original', text: detectedEnvironment };
+  if (selectedEnvPreset && customEnvText) return { mode: 'custom', text: customEnvText };
+  if (customEnvText) return { mode: 'custom', text: customEnvText };
+  return { mode: 'original', text: detectedEnvironment };
+}
+
+$('step1Next').addEventListener('click', async () => {
+  goTo(2);
+  $('analysisError').classList.remove('show');
+  $('analyzingStatus').textContent = 'Analyzing visual elements...';
+  try {
+    analysisResult = await callGroq([
+      {
+        role: 'system',
+        content: `You are an expert image analyst. Analyze this Pinterest reference image in extreme detail. DO NOT describe the face or facial features. Focus on everything EXCEPT the face. Be extremely specific. Cover ALL categories:
+
+BODY & POSE: gender, approximate age, ethnicity (only if obvious), body position, pose, stance, body angle, head angle (tilt, turn), eye direction, hand position, finger placement, arm position, leg position, posture, weight distribution, movement, proportions, shoulder angle, hip angle, torso twist
+
+CLOTHING: every garment from top to bottom, fabric type, stitching, wrinkles, folds, creases, texture, material, fit, color, wear patterns, layering, how fabric drapes and responds to gravity
+
+TATTOOS: placement, style, size, colors, subject matter. Or "None visible"
+
+ACCESSORIES: rings, necklaces, bracelets, watches, earrings, sunglasses, hats, bags, belts, piercings with material, color, placement. Or "None visible"
+
+ENVIRONMENT: buildings, roads, sidewalks, furniture, plants, vehicles, windows, doors, signage, reflections, sky, clouds, weather, atmosphere, time of day, architecture, ground texture, objects
+
+CAMERA: angle (eye-level, low, high, dutch), distance (close, medium, full-body), composition, framing, cropping, orientation, lens perspective, depth of field, focus point
+
+LIGHTING: source, direction, shadow hardness, shadow direction, reflections, highlights, color temperature, ambient level, contrast, lens flare, backlighting
+
+REALISM & QUALITY: noise, grain, sharpness, compression, atmosphere, style (candid, posed, snapshot), motion blur
+
+COLOR: dominant colors, palette, saturation, white balance, color cast
+
+Be exhaustive. "Not visible" for absent items. Do not invent details.`
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: mainImageBase64 } },
+          { type: 'text', text: 'Analyze this image in extreme detail.' }
+        ]
+      }
+    ]);
+    await populateAccessories();
+    populateEnvironment();
+    goTo(3);
+  } catch (err) {
+    $('analysisError').textContent = 'Error: ' + err.message;
+    $('analysisError').classList.add('show');
+    goTo(2);
+  }
+});
+
+async function generatePrompt() {
+  goTo(8);
+  $('generationError').classList.remove('show');
+  $('generatingStatus').textContent = 'Composing prompt from analysis...';
+
+  const outfitChoice = document.querySelector('input[name="outfit"]:checked')?.value || 'original';
+  const tattooChoice = document.querySelector('input[name="tattoos"]:checked')?.value || 'keep-tattoos';
+  const selectedAccessories = getSelectedAccessories();
+  const removedAccessories = getRemovedAccessories();
+  const envChoice = getSelectedEnvironment();
+
+  let userContent = [];
+
+  if (outfitChoice === 'custom' && outfitImageBase64) {
+    userContent.push({ type: 'image_url', image_url: { url: outfitImageBase64 } });
+    userContent.push({ type: 'text', text: '[OUTFIT REFERENCE IMAGE - Use this outfit instead]' });
+  }
+
+  userContent.push({
+    type: 'text',
+    text: `Here is the detailed visual analysis of the Pinterest reference image (face intentionally NOT analyzed):
+
+${analysisResult}
+
+USER MODIFICATIONS:
+- Outfit: ${outfitChoice === 'custom' ? 'USE THE OUTFIT REFERENCE IMAGE PROVIDED ABOVE. Replace all clothing while preserving pose, framing, lighting, environment, composition.' : 'Keep the outfit exactly as shown.'}
+- Tattoos: ${tattooChoice === 'keep-tattoos' ? 'Keep all visible tattoos.' : 'Remove all tattoos completely.'}
+- Accessories: ${selectedAccessories.length > 0 ? 'KEEP ONLY: ' + selectedAccessories.join('; ') + '. ABSOLUTELY DO NOT include these removed items under any circumstances: ' + (removedAccessories.length > 0 ? removedAccessories.join(', ') : 'none') + '. If the analysis mentions any of the removed items, they must be completely erased from the final prompt as if they never existed.' : 'Remove ALL accessories completely. The final prompt must contain zero accessories.'}
+- Environment: ${envChoice.mode === 'custom' ? 'REPLACE THE ENTIRE ENVIRONMENT with this custom setting: ' + envChoice.text + '. Keep the same pose, body, clothing, lighting direction, and camera from the reference, but completely change the background/environment to the custom setting described above.' : 'Keep the environment exactly as detected in the reference image.'}
+
+CRITICAL INSTRUCTIONS:
+
+1. Subject MUST start with "[blank]" - do NOT describe face, facial features, skin tone, hairstyle, hair color, or any facial details. The user uploads their own face to the image generator.
+
+2. THE #1 PRIORITY IS ANTI-AI REALISM. The image MUST look like a real candid photograph taken by a friend with a regular smartphone. Never AI-generated.
+
+Generate ONE copy-ready photorealistic prompt in English with this EXACT structure:
+
+Subject: [blank]
+
+Body: [ONLY body position, pose, stance, body angle, head angle, eye direction, hand position, arm position, leg position, movement, weight distribution - NO face, NO facial features, NO hair details]
+
+Clothing: [every garment, fabric type, stitching, wrinkles, folds, texture, material, fit, color, wear, how fabric drapes and responds to pose]
+
+Accessories: ${selectedAccessories.length > 0 ? '[describe ONLY these specific accessories in extreme detail: ' + selectedAccessories.join(', ') + ' - material, color, placement, condition. DO NOT mention, describe, or reference any other accessories. Items explicitly removed: ' + (removedAccessories.length > 0 ? removedAccessories.join(', ') : 'none') + ' - these MUST be completely absent from the output.]' : '[omit this section entirely - write literally nothing here, no accessories exist in this image]'}
+
+Tattoos: [only if kept, otherwise omit]
+
+Environment: ${envChoice.mode === 'custom' ? '[describe this CUSTOM environment in extreme detail based on the user override: ' + envChoice.text + ' - every visible element, surface, object, light source, atmosphere, sky, ground texture. This replaces the original environment completely.]' : '[every visible detail from the reference - buildings, roads, vehicles, windows, reflections, sky, weather, atmosphere, ground surface, objects, signage, plants]'}
+
+Camera: [angle, distance, composition, framing, cropping, orientation, lens perspective, depth of field, focus point]
+
+Lighting: [source, direction, shadow quality, reflections, highlights, color temperature, ambient light, contrast]
+
+Realism: Must look exactly like a casual candid photo taken by a friend using a regular smartphone. No artistic intent. No professional photography. Accidental and spontaneous. No cinematic look. No stylization. No beauty filter. No HDR. No dramatic lighting. No perfect composition. No AI look. Natural skin texture with real pores, fine lines, blemishes. Subtle asymmetry. Natural hair with flyaways. Realistic fabric physics with wrinkles and gravity pull. Authentic unposed body language. Real smartphone quality: slight noise in shadows, mild compression, lens vignette. Slight handheld shake. Slight motion blur if appropriate. No depth-of-field unless in reference. Background equally sharp if reference is sharp. Someone took out their phone and snapped a quick photo without thinking.
+
+Color: Raw smartphone camera colors. Natural auto white balance. No color grading. No correction. Neutral everyday colors. No orange/teal. No Instagram filter. No moody tone. Unprocessed phone camera output.
+
+Composition: Subject placement, negative space, horizon, framing, crop, balance - and imperfections. Off-center. Slight tilt. Awkward crop. Cut off at edges. Accidental negative space. Feels like someone quickly snapped a photo, not a composed shot.
+
+Quality: Ultra photorealistic. Indistinguishable from a real smartphone photograph. Never AI-generated. No glossy perfect look. Real grain. Real noise. Real imperfections. Portrait orientation. Aspect ratio 3:4.
+
+OUTPUT RULES:
+- English only.
+- No markdown, no headers, no bullet points.
+- No explanations, no reasoning, no summaries, no preamble.
+- Raw prompt text section by section, copy-paste ready.
+- Do not invent details not in the analysis.
+- Preserve original composition, lighting, camera, environment unless user modifications override.
+- Usable for GPT Image, Flux, Midjourney, or Ideogram.
+- Must pass as a real photograph. If anyone guesses AI, the prompt failed.`
+  });
+
+  try {
+    $('generatingStatus').textContent = 'Building final prompt...';
+    const result = await callGroq([
+      { role: 'system', content: 'You are an elite AI Prompt Engineer. Your ONLY job: convert image analyses into ultra-photorealistic anti-AI image-generation prompts. #1 rule: output must NEVER look AI-generated. It must look like a real candid smartphone photo by a friend. Output ONLY the final prompt - no explanations, no markdown, no headers. Raw prompt text, section by section, copy-paste ready.' },
+      { role: 'user', content: userContent }
+    ]);
+    $('promptOutput').textContent = result;
+    goTo(9);
+  } catch (err) {
+    $('generationError').textContent = 'Error: ' + err.message;
+    $('generationError').classList.add('show');
+    goTo(8);
+  }
+}
+
+function copyPrompt() {
+  const text = $('promptOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    $('copyBtn').textContent = 'Copied!';
+    setTimeout(() => $('copyBtn').textContent = 'Copy to Clipboard', 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    $('copyBtn').textContent = 'Copied!';
+    setTimeout(() => $('copyBtn').textContent = 'Copy to Clipboard', 2000);
+  });
+}
+
+buildIndicators();
+$('changeKeyBtn').style.display = 'none';
+
+const savedKey = localStorage.getItem('groq_api_key');
+if (savedKey && savedKey.startsWith('gsk_')) {
+  API_KEY = savedKey;
+  $('tokenInput').value = savedKey;
+  goTo(1);
+} else {
+  goTo(0);
+}
+</script>
+</body>
+</html>
